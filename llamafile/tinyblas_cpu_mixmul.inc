@@ -275,7 +275,7 @@ class MixMul {
         if (thought->type != ggml_type_trait<TB>::id)
             quantize_thought(ggml_type_trait<TB>::id);
         build_row_pointers(ggml_type_trait<TB>::id);
-        ggml_barrier(params);
+        ggml_barrier(params->threadpool);
         assert(!(cols % BS));
         assert(!(weights->nb[1] % sizeof(TA)));
         // TODO(jart): parallelize this loop
@@ -340,7 +340,7 @@ class MixMul {
             ggml_fp32_to_bf16_row(src, (ggml_bf16_t *)dst, cols);
             break;
         case GGML_TYPE_Q8_0:
-            quantize_row_q8_0((const float *)src, (block_q8_0 *)dst, cols);
+            quantize_row_q8_0_ref((const float *)src, (block_q8_0 *)dst, cols);
             break;
         default:
             GGML_UNREACHABLE();

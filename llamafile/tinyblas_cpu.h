@@ -40,11 +40,16 @@
 
 #pragma once
 
-#include "llama.cpp/ggml-impl.h"
-#include "llama.cpp/ggml-quants.h"
-#include "log.h"
+#include "ggml-impl.h"
+#include "ggml-quants.h"
+#include "ggml-cpu-impl.h"  // For ggml_compute_params, ggml_barrier
+#include "llamafile.h"      // For FLAG_precise
 #include "sgemm.h"
 #include <cosmo.h>
+#include <stdio.h>
+
+// Simple log macro for tinyBLAS (replaces log.h dependency)
+#define tinylogf(...) fprintf(stderr, __VA_ARGS__)
 
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wignored-attributes"

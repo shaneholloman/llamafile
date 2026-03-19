@@ -1,46 +1,150 @@
-If you want to be able to just say:
+# Creating a llamafile
+
+A llamafile bundles the llamafile executable, model weights, and a set of
+default arguments into a single self-contained file using the
+[APE](https://justine.lol/ape.html) (Actually Portable Executable) format,
+which supports ZIP as a container for extra data. If you have already
+downloaded a llamafile, you can inspect its contents with
+`unzip -vl <filename.llamafile>` (or on Windows, rename it to `.zip` and
+open it in your ZIP GUI).
+
+## Prerequisites
+
+llamafile uses [zipalign](https://github.com/jart/zipalign) to bundle files
+into the executable. It is included as a git submodule and built alongside
+llamafile, so if you have already compiled llamafile you have the `zipalign`
+executable in the `o//third_party/zipalign` folder. To build it on its own:
 
 ```sh
+make o//third_party/zipalign
+```
+
+> [!NOTE]
+> The zipalign tool referenced here is **not** the
+> [Android zipalign](https://developer.android.com/tools/zipalign). See the
+> GitHub repo above for an in-depth description and up-to-date code.
+
+## What you need
+
+- **The llamafile executable** — download a prebuilt binary from the
+  [releases page](https://github.com/mozilla-ai/llamafile/releases), or build
+  from source following
+  [these instructions](https://mozilla-ai.github.io/llamafile/source_installation/).
+
+- **Model weights in GGUF format** — download from Hugging Face
+  ([search here](https://huggingface.co/models?library=gguf)), or use weights
+  already on disk from
+  [another application](https://mozilla-ai.github.io/llamafile/quickstart/#running-llamafile-with-models-downloaded-by-third-party-applications).
+
+- **A `.args` file** — specifies default arguments (at minimum, the model
+  path so it loads automatically).
+
+## Examples
+
+### TUI, text-only
+
+Let's see how this works in practice with a simple, text-only language
+model, e.g. Qwen3-0.6B:
+
+- [Search](https://huggingface.co/models?library=gguf&sort=trending&search=qwen3-0.6b) for the model weights in GGUF format
+(for the sake of this example we'll download [these](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF) with Q8 quantization)
+- Create a file named `.args` with the following content:
+
+```text
+-m
+/zip/Qwen3-0.6B-Q8_0.gguf
+-fa
+on
+--temp
+0.6
+--top-k
+20
+--top-p
+0.95
+--min-p
+0
+--presence-penalty
+1.5
+-c
+40960
+-n
+32768
+--no-context-shift
+--no-mmap
+...
+```
+
+> [!NOTE]
+> There is one argument per line. Most arguments are optional — the model
+> name is the only required one (the above replicates the parameters suggested
+> [here](https://huggingface.co/Qwen/Qwen3-0.6B-GGUF)). The `/zip/` path
+> prefix is required whenever referencing a file packaged inside the llamafile.
+> The `...` token is replaced with any additional CLI arguments the user passes
+> at runtime.
+
+- Copy the llamafile executable and run zipalign to embed the weights and args:
+
+```bash
+cp o//llamafile/llamafile Qwen3-0.6B-Q8.llamafile
+
+o//third_party/zipalign/zipalign -j0 \
+  Qwen3-0.6B-Q8.llamafile \
+  Qwen3-0.6B-Q8_0.gguf \
+  .args
+
+./Qwen3-0.6B-Q8.llamafile
+```
+
+Congratulations, you've just made your own LLM executable that's easy to
+share with your friends!
+
+Your new llamafile will start loading the Qwen model in the TUI. You can also
+run it as a web server with:
+
+```bash
+./Qwen3-0.6B-Q8.llamafile --server
+```
+
+### Server, multimodal
+
+Now, let us build another llamafile running a multimodal model served
+via HTTP. If you want to be able to just say:
+
+```bash
 ./llava.llamafile
 ```
 
 ...and have it run the web server without having to specify arguments,
-then you can embed both the weights and a special `.args` inside, which
-specifies the default arguments. First, let's create a file named
-`.args` which has this content:
+embed both the weights and the following `.args` file
+(weights used in this example are downloaded from [here](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf)):
 
-```sh
+```text
 -m
-llava-v1.5-7b-Q8_0.gguf
+/zip/llava-v1.6-mistral-7b.Q8_0.gguf
 --mmproj
-llava-v1.5-7b-mmproj-Q8_0.gguf
+/zip/mmproj-model-f16.gguf
+--server
 --host
 0.0.0.0
 -ngl
 9999
+--no-mmap
 ...
 ```
 
-As we can see above, there's one argument per line. The `...` argument
-optionally specifies where any additional CLI arguments passed by the
-user are to be inserted. Next, we'll add both the weights and the
-argument file to the executable:
+Next, add both the weights and the argument file to the executable:
 
-```sh
-cp /usr/local/bin/llamafile llava.llamafile
+```bash
+cp o//llamafile/llamafile llava.llamafile
 
-zipalign -j0 \
+o//third_party/zipalign/zipalign -j0 \
   llava.llamafile \
-  llava-v1.5-7b-Q8_0.gguf \
-  llava-v1.5-7b-mmproj-Q8_0.gguf \
+  llava-v1.6-mistral-7b.Q8_0.gguf \
+  mmproj-model-f16.gguf \
   .args
 
 ./llava.llamafile
 ```
-
-Congratulations. You've just made your own LLM executable that's easy to
-share with your friends.
-
 
 ## Distribution
 

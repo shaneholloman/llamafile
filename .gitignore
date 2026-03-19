@@ -10,3 +10,13 @@
 /trace.json
 
 /*.log
+/*.bin
+/*.mp3
+
+.claude
+CLAUDE.md
+
+# python
+*.pyc
+__init__.py
+uv.lock
